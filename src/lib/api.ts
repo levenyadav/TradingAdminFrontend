@@ -100,7 +100,8 @@ function getMockData(endpoint: string): any {
   
   if (endpoint.includes('/admin/analytics/dashboard')) return mockData.mockDashboardData;
   if (endpoint.includes('/admin/analytics/users')) return mockData.mockUserAnalytics;
-  if (endpoint.includes('/admin/analytics/trading')) return mockData.mockTradingAnalytics;
+  if (endpoint.includes('/admin/trading/analytics')) return mockData.mockTradingAnalytics;
+  if (endpoint.includes('/admin/monitoring/metrics')) return mockData.mockDashboardData;
   if (endpoint.includes('/admin/analytics/system/health')) return mockData.mockSystemHealth;
   if (endpoint.includes('/admin/users')) return mockData.mockUsers;
   if (endpoint.includes('/admin/kyc')) return mockData.mockKYCApplications;
@@ -132,9 +133,9 @@ export const adjustUserBalance = (userId: string, amount: number, reason: string
     body: JSON.stringify({ amount, reason }),
   });
 
-// Trading Analytics
-export const getTradingAnalytics = () => 
-  apiCall('/admin/analytics/trading');
+// Trading Analytics - UPDATED: Real backend endpoint with granularity
+export const getTradingAnalytics = (granularity: string = 'day') => 
+  apiCall(`/admin/trading/analytics?granularity=${granularity}`);
 
 export const getAllPositions = (params?: { page?: number; limit?: number }) => 
   apiCall(`/admin/positions?${new URLSearchParams(params as any)}`);
@@ -166,9 +167,9 @@ export const rejectTransaction = (transactionId: string, reason: string) =>
 export const getFinancialAnalytics = () => 
   apiCall('/admin/analytics/financial');
 
-// System Metrics
+// System Metrics - NEW: Real backend endpoint
 export const getSystemMetrics = () => 
-  apiCall('/admin/analytics/system/metrics');
+  apiCall('/admin/monitoring/metrics');
 
 export const getSystemHealth = () => 
   apiCall('/admin/analytics/system/health');

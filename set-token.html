@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Set Auth Token</title>
+</head>
+<body>
+    <h1>Setting Authentication Token</h1>
+    <p>This will set the JWT token in localStorage for the dashboard.</p>
+    <button onclick="setToken()">Set Token</button>
+    
+    <script>
+        function setToken() {
+            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MDIzMGVkOWMzNDUyMjZlY2RhNGJkNiIsImVtYWlsIjoiYWRtaW5AZGVtby5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NjIxNTA4NDUsImV4cCI6MTc2MjE4Njg0NX0.y_GqkHj1A_XK7C4gUHisE-tkYclg1S7clp3Iz5jb6dE';
+            localStorage.setItem('accessToken', token);
+            alert('Token set! You can now close this tab and use the dashboard.');
+        }
+    </script>
+</body>
+</html>

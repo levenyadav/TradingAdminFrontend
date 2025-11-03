@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { getAnalyticsDashboard, getTradingAnalytics, getUserAnalytics, getSystemHealth } from '../lib/api';
+import { getSystemMetrics, getTradingAnalytics } from '../lib/api';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
 
@@ -28,25 +28,21 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [userAnalytics, setUserAnalytics] = useState<any>(null);
+  const [systemMetrics, setSystemMetrics] = useState<any>(null);
   const [tradingAnalytics, setTradingAnalytics] = useState<any>(null);
-  const [systemHealth, setSystemHealth] = useState<any>(null);
 
   const fetchData = async () => {
     try {
       setError(null);
-      const [dashboard, users, trading, health] = await Promise.all([
-        getAnalyticsDashboard(),
-        getUserAnalytics(),
-        getTradingAnalytics(),
-        getSystemHealth(),
+      const [metrics, trading] = await Promise.all([
+        getSystemMetrics(),
+        getTradingAnalytics('day'),
       ]);
 
-      setDashboardData(dashboard.data);
-      setUserAnalytics(users.data);
+      setSystemMetrics(metrics.data);
       setTradingAnalytics(trading.data);
-      setSystemHealth(health.data);
+      console.log('System Metrics:', metrics.data);
+      console.log('Trading Analytics:', trading.data);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard data');
       console.error('Dashboard error:', err);
@@ -70,7 +66,8 @@ export function Dashboard() {
 
   const handleExport = () => {
     // Export functionality
-    const dataStr = JSON.stringify(dashboardData, null, 2);
+    const exportData = { systemMetrics, tradingAnalytics };
+    const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -126,15 +123,15 @@ export function Dashboard() {
   const statsCards = [
     { 
       title: 'Total Users', 
-      value: userAnalytics?.summary?.totalUsers?.toLocaleString() || '0',
-      change: `${userAnalytics?.summary?.activeUserPercentage || 0}% active`,
+      value: systemMetrics?.users?.total?.toLocaleString() || '0',
+      change: `${systemMetrics?.users?.activePercentage || 0}% active`,
       trend: 'up', 
       icon: Users 
     },
     { 
       title: 'Active Users', 
-      value: userAnalytics?.summary?.activeUsers?.toLocaleString() || '0',
-      change: `${userAnalytics?.summary?.verificationRate || 0}% verified`,
+      value: systemMetrics?.users?.active?.toLocaleString() || '0',
+      change: `${systemMetrics?.users?.verificationRate || 0}% verified`,
       trend: 'up', 
       icon: Activity 
     },
@@ -155,7 +152,7 @@ export function Dashboard() {
     { 
       title: 'Trading Volume', 
       value: `$${(tradingAnalytics?.summary?.totalVolume * 100000 || 0).toLocaleString()}`,
-      change: '+18.3%',
+      change: `${systemMetrics?.users?.newToday || 0} new today`,
       trend: 'up', 
       icon: DollarSign 
     },
@@ -163,18 +160,18 @@ export function Dashboard() {
 
   const chartData = (tradingAnalytics?.timeSeries?.volume || []).map((item: any) => ({
     time: new Date(item._id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    volume: item.volume * 10000,
+    volume: item.volume * 100000, // Convert to larger scale for display
     trades: tradingAnalytics?.timeSeries?.trades?.find((t: any) => t._id === item._id)?.count || 0,
   }));
 
   const topPairs = (tradingAnalytics?.topPerformers?.symbols || []).map((symbol: any) => ({
     pair: symbol._id,
     volume: `$${(symbol.volume * 100000).toLocaleString()}`,
-    change: '+0.00%',
+    change: `${symbol.count} trades`,
     trend: 'up',
   }));
 
-  const marketStatus = systemHealth?.status === 'healthy' || systemHealth?.status === 'warning';
+  const marketStatus = systemMetrics?.performance?.healthScore > 90;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -323,19 +320,19 @@ export function Dashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Health Score</span>
-                  <span className="text-gray-900">{dashboardData?.system?.performance?.healthScore || 0}%</span>
+                  <span className="text-gray-900">{systemMetrics?.performance?.healthScore || 0}%</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Active Connections</span>
-                  <span className="text-gray-900">{dashboardData?.system?.users?.online?.toLocaleString() || 0}</span>
+                  <span className="text-gray-900">{systemMetrics?.users?.online?.toLocaleString() || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">API Calls (24h)</span>
-                  <span className="text-gray-900">{dashboardData?.platform?.apiCalls?.toLocaleString() || 0}</span>
+                  <span className="text-gray-900">{systemMetrics?.performance?.api?.total?.toLocaleString() || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Avg Response Time</span>
-                  <span className="text-gray-900">{dashboardData?.system?.performance?.responseTime?.average?.toFixed(0) || 0}ms</span>
+                  <span className="text-gray-900">{systemMetrics?.performance?.responseTime?.average?.toFixed(0) || 0}ms</span>
                 </div>
               </div>
             </CardContent>
@@ -360,7 +357,7 @@ export function Dashboard() {
                   <div>
                     <div className="text-sm text-gray-900">Market Status</div>
                     <div className="text-xs text-gray-500">
-                      {systemHealth?.status || 'Unknown'}
+                      {systemMetrics?.system?.environment || 'Unknown'} environment
                     </div>
                   </div>
                 </div>
@@ -372,16 +369,16 @@ export function Dashboard() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Database</span>
                   <span className="text-gray-900">
-                    {dashboardData?.system?.database?.mongodb?.connected ? '✓ Connected' : '✗ Disconnected'}
+                    {systemMetrics?.database?.mongodb?.connected ? '✓ Connected' : '✗ Disconnected'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Memory Usage</span>
-                  <span className="text-gray-900">{dashboardData?.system?.system?.memory?.usagePercentage || 0}%</span>
+                  <span className="text-gray-900">{systemMetrics?.system?.memory?.usagePercentage || 0}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Total Documents</span>
-                  <span className="text-gray-900">{dashboardData?.system?.database?.mongodb?.documents?.toLocaleString() || 0}</span>
+                  <span className="text-gray-900">{systemMetrics?.database?.mongodb?.documents?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </CardContent>
@@ -420,20 +417,20 @@ export function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Pending KYC</span>
-                <span className="text-gray-900">{dashboardData?.platform?.kyc?.pending || 0}</span>
+                <span className="text-gray-500">Verified Users</span>
+                <span className="text-gray-900">{systemMetrics?.users?.verified || 0}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Approved KYC</span>
-                <span className="text-gray-900">{dashboardData?.platform?.kyc?.approved || 0}</span>
+                <span className="text-gray-500">Total Trades</span>
+                <span className="text-gray-900">{tradingAnalytics?.summary?.totalTrades || 0}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">New Users (Today)</span>
-                <span className="text-gray-900">{dashboardData?.users?.summary?.newUsers || 0}</span>
+                <span className="text-gray-900">{systemMetrics?.users?.newToday || 0}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Active Accounts</span>
-                <span className="text-gray-900">{dashboardData?.platform?.accounts || 0}</span>
+                <span className="text-gray-500">Total P&L</span>
+                <span className="text-gray-900">${tradingAnalytics?.summary?.totalPnL?.toFixed(2) || 0}</span>
               </div>
             </CardContent>
           </Card>
