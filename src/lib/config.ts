@@ -3,6 +3,7 @@ export const config = {
   // ⚠️ IMPORTANT: Change this to your backend URL
   // API Base URL - Update this to match your backend server
   apiUrl: 'http://localhost:5022/api',
+  // apiUrl: 'https://api.novapip.io/api',
   
   // You can also set it dynamically:
   // apiUrl: window.location.hostname === 'localhost' 

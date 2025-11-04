@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -24,25 +24,159 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { toast } from 'sonner@2.0.3';
-
-const currencyPairs = [
-  { pair: 'EUR/USD', enabled: true, spread: '0.8', leverage: '1:100' },
-  { pair: 'GBP/USD', enabled: true, spread: '1.2', leverage: '1:100' },
-  { pair: 'USD/JPY', enabled: true, spread: '0.9', leverage: '1:100' },
-  { pair: 'AUD/USD', enabled: true, spread: '1.1', leverage: '1:50' },
-  { pair: 'USD/CAD', enabled: false, spread: '1.3', leverage: '1:50' },
-  { pair: 'EUR/GBP', enabled: true, spread: '1.0', leverage: '1:100' },
-];
+import { 
+  getPlatformSettings, 
+  getTradingSettings, 
+  getNotificationSettings, 
+  getBusinessSettings,
+  updatePlatformSettings,
+  updateTradingSettings,
+  updateNotificationSettings,
+  updateBusinessSettings
+} from '../lib/api';
+import type { 
+  PlatformSettings, 
+  TradingSettings, 
+  NotificationSettings, 
+  BusinessSettings,
+  APIResponse 
+} from '../lib/types';
 
 export function PlatformSettings() {
+  // Loading and error states
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Settings data
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings | null>(null);
+  const [tradingSettings, setTradingSettings] = useState<TradingSettings | null>(null);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null);
+  const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
+
+  // UI state variables
   const [marketOpen, setMarketOpen] = useState(true);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [autoCloseWeekend, setAutoCloseWeekend] = useState(true);
   const [enableNotifications, setEnableNotifications] = useState(true);
 
-  const handleSave = () => {
-    toast.success('Settings saved successfully');
+  // Load all settings on component mount
+  useEffect(() => {
+    loadAllSettings();
+  }, []);
+
+  const loadAllSettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [platformRes, tradingRes, notificationRes, businessRes] = await Promise.all([
+        getPlatformSettings() as Promise<APIResponse<PlatformSettings>>,
+        getTradingSettings() as Promise<APIResponse<TradingSettings>>,
+        getNotificationSettings() as Promise<APIResponse<NotificationSettings>>,
+        getBusinessSettings() as Promise<APIResponse<BusinessSettings>>
+      ]);
+
+      if (platformRes.success) {
+        setPlatformSettings(platformRes.data);
+        setMarketOpen(!platformRes.data.globalTradingHalt.isHalted);
+        setMaintenanceMode(platformRes.data.maintenanceMode.isEnabled);
+        setEnableNotifications(platformRes.data.notificationSettings.enableEmailNotifications);
+      }
+
+      if (tradingRes.success) {
+        setTradingSettings(tradingRes.data);
+      }
+
+      if (notificationRes.success) {
+        setNotificationSettings(notificationRes.data);
+      }
+
+      if (businessRes.success) {
+        setBusinessSettings(businessRes.data);
+      }
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to load settings');
+      console.error('Settings load error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    if (!platformSettings) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      // Update platform settings with current UI state
+      const updatedSettings = {
+        ...platformSettings,
+        globalTradingHalt: {
+          isHalted: !marketOpen
+        },
+        maintenanceMode: {
+          ...platformSettings.maintenanceMode,
+          isEnabled: maintenanceMode
+        },
+        notificationSettings: {
+          ...platformSettings.notificationSettings,
+          enableEmailNotifications: enableNotifications
+        }
+      };
+
+      const response = await updatePlatformSettings(updatedSettings) as APIResponse<PlatformSettings>;
+      
+      if (response.success) {
+        setPlatformSettings(response.data);
+        toast.success('Settings saved successfully');
+      } else {
+        throw new Error(response.message || 'Failed to save settings');
+      }
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to save settings');
+      toast.error(err.message || 'Failed to save settings');
+      console.error('Settings save error:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Loading settings...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+        <Alert className="border-red-200 bg-red-50">
+          <X className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            {error}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-3" 
+              onClick={loadAllSettings}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
@@ -54,11 +188,15 @@ export function PlatformSettings() {
         </div>
         <div className="flex items-center gap-3">
           <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-            v2.4.1
+            v{platformSettings?.version || '2.4.1'}
           </Badge>
-          <Button onClick={handleSave} className="gap-2">
+          <Button 
+            onClick={handleSave} 
+            disabled={saving || !platformSettings}
+            className="gap-2"
+          >
             <Save className="h-4 w-4" />
-            Save All Changes
+            {saving ? 'Saving...' : 'Save All Changes'}
           </Button>
         </div>
       </div>
@@ -127,22 +265,743 @@ export function PlatformSettings() {
 
               <Separator />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Platform Name</Label>
-                  <Input defaultValue="NovaPip" className="mt-2" />
-                </div>
-                <div>
-                  <Label>Default Currency</Label>
-                  <Input defaultValue="USD" className="mt-2" />
-                </div>
-                <div>
-                  <Label>Session Timeout (minutes)</Label>
-                  <Input type="number" defaultValue="30" className="mt-2" />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <Label>Max Leverage</Label>
-                  <Input defaultValue="1:100" className="mt-2" />
+                  <Input 
+                    type="number"
+                    value={platformSettings?.tradingParameters.maxLeverage || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          tradingParameters: {
+                            ...platformSettings.tradingParameters,
+                            maxLeverage: parseInt(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Min Trade Volume</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.tradingParameters.minTradeVolume || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          tradingParameters: {
+                            ...platformSettings.tradingParameters,
+                            minTradeVolume: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Trade Volume</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.tradingParameters.maxTradeVolume || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          tradingParameters: {
+                            ...platformSettings.tradingParameters,
+                            maxTradeVolume: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Open Positions</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.tradingParameters.maxOpenPositions || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          tradingParameters: {
+                            ...platformSettings.tradingParameters,
+                            maxOpenPositions: parseInt(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Daily Volume</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.tradingParameters.maxDailyVolume || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          tradingParameters: {
+                            ...platformSettings.tradingParameters,
+                            maxDailyVolume: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Margin Call Level (%)</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.tradingParameters.marginCallLevel || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          tradingParameters: {
+                            ...platformSettings.tradingParameters,
+                            marginCallLevel: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Stop Out Level (%)</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.tradingParameters.stopOutLevel || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          tradingParameters: {
+                            ...platformSettings.tradingParameters,
+                            stopOutLevel: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-gray-900 font-medium">KYC Requirements</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Require KYC for Trading</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Users must complete KYC verification to place trades
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.tradingParameters.requireKYCForTrading || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            tradingParameters: {
+                              ...platformSettings.tradingParameters,
+                              requireKYCForTrading: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Require KYC for Withdrawal</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Users must complete KYC verification to withdraw funds
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.tradingParameters.requireKYCForWithdrawal || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            tradingParameters: {
+                              ...platformSettings.tradingParameters,
+                              requireKYCForWithdrawal: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Risk Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Risk Management</CardTitle>
+              <CardDescription>Configure risk controls and loss limits</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <Label>Max Drawdown (%)</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.riskManagement.maxDrawdownPercent || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          riskManagement: {
+                            ...platformSettings.riskManagement,
+                            maxDrawdownPercent: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Daily Loss Limit</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.riskManagement.dailyLossLimit || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          riskManagement: {
+                            ...platformSettings.riskManagement,
+                            dailyLossLimit: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Weekly Loss Limit</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.riskManagement.weeklyLossLimit || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          riskManagement: {
+                            ...platformSettings.riskManagement,
+                            weeklyLossLimit: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Monthly Loss Limit</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.riskManagement.monthlyLossLimit || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          riskManagement: {
+                            ...platformSettings.riskManagement,
+                            monthlyLossLimit: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-gray-900 font-medium">Risk Controls</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Enable Auto Stop Out</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Automatically close positions when stop out level is reached
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.riskManagement.enableAutoStopOut || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            riskManagement: {
+                              ...platformSettings.riskManagement,
+                              enableAutoStopOut: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Enable Risk Alerts</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Send notifications when risk thresholds are approached
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.riskManagement.enableRiskAlerts || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            riskManagement: {
+                              ...platformSettings.riskManagement,
+                              enableRiskAlerts: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Suspend High Risk Accounts</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Automatically suspend accounts that exceed risk limits
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.riskManagement.suspendHighRiskAccounts || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            riskManagement: {
+                              ...platformSettings.riskManagement,
+                              suspendHighRiskAccounts: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Financial Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Financial Settings</CardTitle>
+              <CardDescription>Configure deposit and withdrawal limits</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <Label>Min Deposit</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.minDeposit || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            minDeposit: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Deposit</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.maxDeposit || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            maxDeposit: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Min Withdrawal</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.minWithdrawal || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            minWithdrawal: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Withdrawal</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.maxWithdrawal || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            maxWithdrawal: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Daily Withdrawal</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.maxDailyWithdrawal || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            maxDailyWithdrawal: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Weekly Withdrawal</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.maxWeeklyWithdrawal || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            maxWeeklyWithdrawal: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Monthly Withdrawal</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.maxMonthlyWithdrawal || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            maxMonthlyWithdrawal: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Withdrawal Processing Time (hours)</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.financialSettings.withdrawalProcessingTime || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            withdrawalProcessingTime: parseInt(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Admin Approval Amount</Label>
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    value={platformSettings?.financialSettings.requireAdminApprovalAmount || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          financialSettings: {
+                            ...platformSettings.financialSettings,
+                            requireAdminApprovalAmount: parseFloat(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-gray-900 font-medium">Auto-Approval Settings</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Auto-Approve Deposits</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Automatically approve deposits without manual review
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.financialSettings.autoApproveDeposits || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            financialSettings: {
+                              ...platformSettings.financialSettings,
+                              autoApproveDeposits: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Auto-Approve Withdrawals</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Automatically approve withdrawals below admin approval amount
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.financialSettings.autoApproveWithdrawals || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            financialSettings: {
+                              ...platformSettings.financialSettings,
+                              autoApproveWithdrawals: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* API Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>API Settings</CardTitle>
+              <CardDescription>Configure API access and rate limiting</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <Label>Rate Limit Requests</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.apiSettings.rateLimitRequests || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          apiSettings: {
+                            ...platformSettings.apiSettings,
+                            rateLimitRequests: parseInt(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Rate Limit Window (minutes)</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.apiSettings.rateLimitWindow || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          apiSettings: {
+                            ...platformSettings.apiSettings,
+                            rateLimitWindow: parseInt(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>Max Webhook Retries</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.apiSettings.maxWebhookRetries || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          apiSettings: {
+                            ...platformSettings.apiSettings,
+                            maxWebhookRetries: parseInt(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+                <div>
+                  <Label>API Timeout (seconds)</Label>
+                  <Input 
+                    type="number"
+                    value={platformSettings?.apiSettings.apiTimeoutSeconds || ''} 
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          apiSettings: {
+                            ...platformSettings.apiSettings,
+                            apiTimeoutSeconds: parseInt(e.target.value) || 0
+                          }
+                        });
+                      }
+                    }}
+                    className="mt-2" 
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-gray-900 font-medium">API Access Control</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Enable API</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Allow external applications to access the API
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.apiSettings.enableAPI || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            apiSettings: {
+                              ...platformSettings.apiSettings,
+                              enableAPI: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Label className="text-gray-900">Enable Webhooks</Label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Allow webhook notifications for events
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={platformSettings?.apiSettings.enableWebhooks || false} 
+                      onCheckedChange={(checked) => {
+                        if (platformSettings) {
+                          setPlatformSettings({
+                            ...platformSettings,
+                            apiSettings: {
+                              ...platformSettings.apiSettings,
+                              enableWebhooks: checked
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -234,19 +1093,27 @@ export function PlatformSettings() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currencyPairs.map((pair) => (
-                    <TableRow key={pair.pair}>
-                      <TableCell>{pair.pair}</TableCell>
+                  {tradingSettings?.availableSymbols?.map((symbol) => (
+                    <TableRow key={symbol._id}>
+                      <TableCell>{symbol.symbol}</TableCell>
                       <TableCell>
-                        <Badge className={pair.enabled ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}>
-                          {pair.enabled ? 'Enabled' : 'Disabled'}
+                        <Badge className={symbol.tradingEnabled ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}>
+                          {symbol.tradingEnabled ? 'Enabled' : 'Disabled'}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Input defaultValue={pair.spread} className="w-24" />
+                        <Input 
+                          defaultValue="1.0" 
+                          className="w-24" 
+                          placeholder="Spread"
+                        />
                       </TableCell>
                       <TableCell>
-                        <Input defaultValue={pair.leverage} className="w-24" />
+                        <Input 
+                          defaultValue={`1:${platformSettings?.tradingParameters.maxLeverage || 100}`} 
+                          className="w-24" 
+                          placeholder="Leverage"
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
@@ -259,7 +1126,13 @@ export function PlatformSettings() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) || (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-gray-500">
+                        No trading symbols available
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -413,7 +1286,18 @@ export function PlatformSettings() {
                   <Textarea 
                     placeholder="Enter message to display to users..."
                     className="mt-2"
-                    defaultValue="We are currently performing scheduled maintenance. The platform will be back online shortly."
+                    value={platformSettings?.maintenanceMode.message || "We are currently performing scheduled maintenance. The platform will be back online shortly."}
+                    onChange={(e) => {
+                      if (platformSettings) {
+                        setPlatformSettings({
+                          ...platformSettings,
+                          maintenanceMode: {
+                            ...platformSettings.maintenanceMode,
+                            message: e.target.value
+                          }
+                        });
+                      }
+                    }}
                     rows={3}
                   />
                 </div>
@@ -426,19 +1310,31 @@ export function PlatformSettings() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <div className="text-gray-500">Platform Version</div>
-                    <div className="text-gray-900">v2.4.1</div>
+                    <div className="text-gray-900">v{platformSettings?.version || '2.4.1'}</div>
                   </div>
                   <div>
                     <div className="text-gray-500">Last Updated</div>
-                    <div className="text-gray-900">2024-10-15</div>
+                    <div className="text-gray-900">
+                      {platformSettings?.lastUpdatedAt ? 
+                        new Date(platformSettings.lastUpdatedAt).toLocaleDateString() : 
+                        '2024-10-15'
+                      }
+                    </div>
                   </div>
                   <div>
-                    <div className="text-gray-500">Database Version</div>
-                    <div className="text-gray-900">PostgreSQL 14.2</div>
+                    <div className="text-gray-500">Created At</div>
+                    <div className="text-gray-900">
+                      {platformSettings?.createdAt ? 
+                        new Date(platformSettings.createdAt).toLocaleDateString() : 
+                        'N/A'
+                      }
+                    </div>
                   </div>
                   <div>
                     <div className="text-gray-500">Server Status</div>
-                    <Badge className="bg-green-100 text-green-700 border-green-200">Healthy</Badge>
+                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                      {platformSettings?.maintenanceMode.isEnabled ? 'Maintenance' : 'Healthy'}
+                    </Badge>
                   </div>
                 </div>
               </div>

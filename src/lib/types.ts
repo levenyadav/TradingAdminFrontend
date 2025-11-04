@@ -305,6 +305,7 @@ export interface PlatformSettings {
   globalTradingHalt: {
     isHalted: boolean;
   };
+  tradingHalts: Record<string, any>;
   maintenanceMode: {
     isEnabled: boolean;
     message?: string;
@@ -315,28 +316,77 @@ export interface PlatformSettings {
     minTradeVolume: number;
     maxTradeVolume: number;
     maxOpenPositions: number;
+    maxDailyVolume: number;
+    marginCallLevel: number;
+    stopOutLevel: number;
+    allowedTimeframes: string[];
+    enabledOrderTypes: string[];
     requireKYCForTrading: boolean;
     requireKYCForWithdrawal: boolean;
   };
   riskManagement: {
     maxDrawdownPercent: number;
     dailyLossLimit: number;
+    weeklyLossLimit: number;
+    monthlyLossLimit: number;
     enableAutoStopOut: boolean;
     enableRiskAlerts: boolean;
+    suspendHighRiskAccounts: boolean;
   };
   financialSettings: {
     minDeposit: number;
     maxDeposit: number;
     minWithdrawal: number;
     maxWithdrawal: number;
+    maxDailyWithdrawal: number;
+    maxWeeklyWithdrawal: number;
+    maxMonthlyWithdrawal: number;
+    withdrawalProcessingTime: number;
     autoApproveDeposits: boolean;
     autoApproveWithdrawals: boolean;
+    requireAdminApprovalAmount: number;
+  };
+  apiSettings: {
+    enableAPI: boolean;
+    rateLimitRequests: number;
+    rateLimitWindow: number;
+    enableWebhooks: boolean;
+    maxWebhookRetries: number;
+    apiTimeoutSeconds: number;
   };
   notificationSettings: {
     enableEmailNotifications: boolean;
     enableSMSNotifications: boolean;
     enablePushNotifications: boolean;
+    notifyAdminsOnHighRisk: boolean;
+    notifyAdminsOnLargeTrades: boolean;
+    largeTradeThreshold: number;
+    enableMaintenanceNotifications: boolean;
   };
+  version: number;
+  lastUpdatedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+}
+
+export interface TradingSettings {
+  settings: Record<string, any>;
+  availableSymbols: {
+    _id: string;
+    symbol: string;
+    category: string;
+    tradingEnabled: boolean;
+  }[];
+  serverTime: string;
+}
+
+export interface NotificationSettings {
+  // Empty object for now based on API response
+}
+
+export interface BusinessSettings {
+  // Empty object for now based on API response
 }
 
 // System Metrics Types

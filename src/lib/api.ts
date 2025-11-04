@@ -181,6 +181,39 @@ export const rejectTransaction = (transactionId: string, reason: string) =>
 export const getFinancialAnalytics = () => 
   apiCall('/admin/analytics/financial');
 
+// Finance Management - Payment/Transaction APIs
+export const getFinanceTransactions = (params?: { 
+  page?: number; 
+  limit?: number; 
+  sortBy?: string; 
+  sortOrder?: string;
+  type?: string;
+  status?: string;
+  search?: string;
+}) => 
+  apiCall(`/admin/finance/transactions?${new URLSearchParams(params as any)}`);
+
+export const getFinanceAnalytics = (granularity: string = 'day') => 
+  apiCall(`/admin/finance/analytics?granularity=${granularity}`);
+
+export const approveDeposit = (transactionId: string, notes?: string) => 
+  apiCall(`/admin/finance/approve-deposit/${transactionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+
+export const approveWithdrawal = (transactionId: string, notes?: string) => 
+  apiCall(`/admin/finance/approve-withdrawal/${transactionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  });
+
+export const rejectFinanceTransaction = (transactionId: string, reason: string) => 
+  apiCall(`/admin/finance/reject-transaction/${transactionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+
 // System Metrics - NEW: Real backend endpoint
 export const getSystemMetrics = () => 
   apiCall('/admin/monitoring/metrics');
@@ -225,8 +258,35 @@ export const requestKYCChanges = (kycId: string, reason: string) =>
 export const getPlatformSettings = () => 
   apiCall('/admin/settings');
 
+export const getTradingSettings = () => 
+  apiCall('/admin/settings/trading');
+
+export const getNotificationSettings = () => 
+  apiCall('/admin/settings/notifications');
+
+export const getBusinessSettings = () => 
+  apiCall('/admin/settings/business');
+
 export const updatePlatformSettings = (settings: any) => 
   apiCall('/admin/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  });
+
+export const updateTradingSettings = (settings: any) => 
+  apiCall('/admin/settings/trading', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  });
+
+export const updateNotificationSettings = (settings: any) => 
+  apiCall('/admin/settings/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  });
+
+export const updateBusinessSettings = (settings: any) => 
+  apiCall('/admin/settings/business', {
     method: 'PATCH',
     body: JSON.stringify(settings),
   });
