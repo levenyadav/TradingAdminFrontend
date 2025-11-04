@@ -7,7 +7,78 @@ export interface APIResponse<T> {
   data: T;
 }
 
-// User Types
+// Address Type
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+// Recent Transaction Type
+export interface RecentTransaction {
+  _id: string;
+  id: string;
+  type: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+  isPending: boolean;
+  isProcessing: boolean;
+  isCompleted: boolean;
+  isFailed: boolean;
+  isCancelled: boolean;
+  isExpired: boolean;
+  amountInUSD: number;
+  feeInUSD: number | null;
+  netAmount: number | null;
+  netAmountInUSD: number | null;
+}
+
+// Recent Order Type
+export interface RecentOrder {
+  _id: string;
+  id: string;
+  symbol: string;
+  type: string;
+  direction: string;
+  volume: number;
+  status: string;
+  createdAt: string;
+  remainingVolume: number | null;
+  isFilled: boolean;
+  isPending: boolean;
+  isExecuted: boolean;
+  isCancelled: boolean;
+  isRejected: boolean;
+  isExpired: boolean;
+  isPartiallyFilled: boolean;
+}
+
+// User Statistics Type
+export interface UserStatistics {
+  deposits: {
+    total: number;
+    count: number;
+  };
+  withdrawals: {
+    total: number;
+    count: number;
+  };
+  totalTrades: number;
+  openPositions: number;
+  accountsCount: number;
+}
+
+// KYC Document Type
+export interface KYCDocument {
+  status: string;
+  verificationLevel: string;
+  submittedAt: string;
+}
+
+// User Types - Updated to match backend response exactly
 export interface User {
   _id: string;
   id: string;
@@ -18,18 +89,50 @@ export interface User {
   phone?: string;
   country: string;
   dateOfBirth?: string;
+  address?: Address;
   role: string;
   status: string;
   kycStatus: string;
   isEmailVerified: boolean;
   twoFactorEnabled: boolean;
-  walletBalance: { $numberDecimal: string } | number;
+  walletBalance: { $numberDecimal: string };
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
   lastLoginIP?: string;
   isLocked: boolean;
-  age: number | null;
+  age: number;
+  // Additional fields from backend response
+  notifications: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+    tradeAlerts: boolean;
+    priceAlerts: boolean;
+    accountAlerts: boolean;
+    marketingEmails: boolean;
+  };
+  metadata: {
+    source: string;
+    userAgent?: string;
+    ipAddress?: string;
+  };
+  timezone: string;
+  language: string;
+  currency: string;
+  accounts: any[];
+  acceptedTerms: boolean;
+  acceptedTermsAt?: string;
+  acceptedPrivacy: boolean;
+  acceptedPrivacyAt?: string;
+  passwordChangedAt?: string;
+  kycSubmittedAt?: string;
+  __v?: number;
+  // Enhanced fields from detailed API response
+  recentTransactions?: RecentTransaction[];
+  recentOrders?: RecentOrder[];
+  statistics?: UserStatistics;
+  kycDocument?: KYCDocument;
 }
 
 export interface UserAnalytics {
@@ -93,14 +196,62 @@ export interface KYCApplication {
     lastName: string;
     fullName: string;
     kycStatus: string;
+    createdAt: string;
+    isLocked: boolean;
+    age: number | null;
   };
   verificationLevel: string;
   status: string;
   submittedAt: string;
-  documents?: any;
+  files: any[];
   rejectionReasons: string[];
+  expiresAt: string;
+  lastModifiedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
+  checks: {
+    duplicateDocument: boolean;
+    blacklisted: boolean;
+    watchlist: boolean;
+    amlScreening: boolean;
+    sanctionsList: boolean;
+  };
   isExpired: boolean;
   canEdit: boolean;
+  age: number | null;
+}
+
+export interface KYCDocument {
+  filename: string;
+  originalName: string;
+  path: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
+  _id?: string;
+}
+
+export interface KYCDetails extends KYCApplication {
+  documents?: {
+    documentFront?: KYCDocument;
+    documentBack?: KYCDocument;
+    selfie?: KYCDocument;
+  };
+  selfie?: KYCDocument;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  userId: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    dateOfBirth?: string;
+    fullName: string;
+    isLocked: boolean;
+    age: number;
+  };
 }
 
 // Trading Types

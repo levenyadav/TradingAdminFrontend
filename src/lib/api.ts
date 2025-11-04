@@ -1,5 +1,4 @@
 import { config, isBrowser } from './config';
-import * as mockData from './mockData';
 import type { LoginRequest, LoginResponse, APIResponse } from './types';
 
 // API Configuration
@@ -49,10 +48,7 @@ export const isAuthenticated = () => {
 
 // Generic API call function
 async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  // If mock data is enabled, return mock data instead
-  if (config.useMockData) {
-    return getMockData(endpoint);
-  }
+  // Always use real API - no mock data fallbacks
 
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getAuthToken();
@@ -70,49 +66,55 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
     const response = await fetch(url, apiConfig);
     
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Network error' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      let errorMessage = `HTTP ${response.status} - ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (parseError) {
+        console.warn('Failed to parse error response:', parseError);
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     return data;
   } catch (error: any) {
-    // Provide helpful error message
-    const errorMessage = error.message || 'Failed to connect to server';
+    // Improved error handling and logging
+    console.error('API Error Details:', {
+      url,
+      error,
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    // Extract meaningful error message
+    let errorMessage = 'Failed to connect to server';
+    
+    if (error.message) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error.toString && error.toString() !== '[object Object]') {
+      errorMessage = error.toString();
+    }
     
     // If it's a connection error, provide setup instructions
-    if (errorMessage.includes('fetch') || errorMessage.includes('Network')) {
+    if (errorMessage.includes('fetch') || errorMessage.includes('Network') || errorMessage.includes('TypeError')) {
       throw new Error(
         `Cannot connect to backend at ${API_BASE_URL}. ` +
-        `Please ensure your backend is running or update the API URL in /lib/config.ts. ` +
-        `You can also enable mock data mode for testing.`
+        `Please ensure your backend is running at localhost:5022`
       );
     }
     
-    console.error('API Error:', error);
-    throw error;
+    // Throw a new error with the extracted message
+    throw new Error(errorMessage);
   }
 }
 
-// Helper to get mock data based on endpoint
-function getMockData(endpoint: string): any {
-  console.log('🎭 Using mock data for:', endpoint);
-  
-  if (endpoint.includes('/admin/analytics/dashboard')) return mockData.mockDashboardData;
-  if (endpoint.includes('/admin/analytics/users')) return mockData.mockUserAnalytics;
-  if (endpoint.includes('/admin/trading/analytics')) return mockData.mockTradingAnalytics;
-  if (endpoint.includes('/admin/monitoring/metrics')) return mockData.mockDashboardData;
-  if (endpoint.includes('/admin/analytics/system/health')) return mockData.mockSystemHealth;
-  if (endpoint.includes('/admin/users')) return mockData.mockUsers;
-  if (endpoint.includes('/admin/kyc')) return mockData.mockKYCApplications;
-  
-  // Default response
-  return { success: true, data: {}, message: 'Mock data' };
-}
-
 // User Analytics
-export const getUserAnalytics = () => 
-  apiCall('/admin/analytics/users');
+export const getUserAnalytics = (granularity: string = 'day') => 
+  apiCall(`/admin/users/analytics?granularity=${granularity}`);
 
 // User Management
 export const getAllUsers = (params?: { page?: number; limit?: number; status?: string; kycStatus?: string; search?: string }) => 
@@ -121,16 +123,28 @@ export const getAllUsers = (params?: { page?: number; limit?: number; status?: s
 export const getUserDetails = (userId: string) => 
   apiCall(`/admin/users/${userId}`);
 
-export const updateUserStatus = (userId: string, status: string) => 
+export const updateUserStatus = (userId: string, status: string, reason: string) => 
   apiCall(`/admin/users/${userId}/status`, {
     method: 'PATCH',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, reason }),
+  });
+
+export const updateUserDetails = (userId: string, userData: any) => 
+  apiCall(`/admin/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(userData),
   });
 
 export const adjustUserBalance = (userId: string, amount: number, reason: string) => 
-  apiCall(`/admin/users/${userId}/balance`, {
-    method: 'PATCH',
-    body: JSON.stringify({ amount, reason }),
+  apiCall(`/admin/finance/adjust-balance`, {
+    method: 'POST',
+    body: JSON.stringify({ 
+      userId, 
+      amount, 
+      reason, 
+      type: 'correction',
+      notifyUser: true 
+    }),
   });
 
 // Trading Analytics - UPDATED: Real backend endpoint with granularity
@@ -186,32 +200,26 @@ export const getNotificationStats = () =>
   apiCall('/admin/analytics/notifications');
 
 // KYC Management
-export const getAllKYCApplications = (params?: { page?: number; limit?: number; status?: string }) => 
-  apiCall(`/admin/kyc?${new URLSearchParams(params as any)}`);
+export const getAllKYCApplications = (params?: { page?: number; limit?: number; status?: string; sortBy?: string; sortOrder?: string; search?: string }) => 
+  apiCall(`/admin/kyc/applications?${new URLSearchParams(params as any)}`);
 
 export const getKYCDetails = (kycId: string) => 
-  apiCall(`/admin/kyc/${kycId}`);
+  apiCall(`/admin/kyc/applications/${kycId}`);
 
-export const getPendingKYC = () => 
-  apiCall('/admin/kyc/pending');
+export const reviewKYC = (kycId: string, action: 'approve' | 'reject' | 'request-changes', notes?: string, rejectionReason?: string) => 
+  apiCall(`/admin/kyc/applications/${kycId}/review`, {
+    method: 'POST',
+    body: JSON.stringify({ action, notes, rejectionReason }),
+  });
 
 export const approveKYC = (kycId: string, notes?: string) => 
-  apiCall(`/admin/kyc/${kycId}/approve`, {
-    method: 'POST',
-    body: JSON.stringify({ notes }),
-  });
+  reviewKYC(kycId, 'approve', notes);
 
 export const rejectKYC = (kycId: string, reason: string) => 
-  apiCall(`/admin/kyc/${kycId}/reject`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
-  });
+  reviewKYC(kycId, 'reject', undefined, reason);
 
 export const requestKYCChanges = (kycId: string, reason: string) => 
-  apiCall(`/admin/kyc/${kycId}/request-changes`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
-  });
+  reviewKYC(kycId, 'request-changes', reason);
 
 // Platform Settings
 export const getPlatformSettings = () => 

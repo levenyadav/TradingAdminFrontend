@@ -11,7 +11,8 @@ import { Textarea } from './ui/textarea';
 import { Search, Download, FileText, Image, CheckCircle, XCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { getAllKYCApplications, getKYCDetails, approveKYC, rejectKYC, requestKYCChanges } from '../lib/api';
-import type { KYCApplication, APIResponse } from '../lib/types';
+import { config } from '../lib/config';
+import type { KYCApplication, KYCDetails, APIResponse } from '../lib/types';
 import { Skeleton } from './ui/skeleton';
 import { toast } from 'sonner@2.0.3';
 import { Label } from './ui/label';
@@ -20,7 +21,7 @@ export function KYCManagement() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [applications, setApplications] = useState<KYCApplication[]>([]);
-  const [selectedKYC, setSelectedKYC] = useState<any | null>(null);
+  const [selectedKYC, setSelectedKYC] = useState<KYCDetails | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -47,7 +48,7 @@ export function KYCManagement() {
 
   const fetchKYCDetail = async (kycId: string) => {
     try {
-      const response: APIResponse<any> = await getKYCDetails(kycId);
+      const response: APIResponse<KYCDetails> = await getKYCDetails(kycId);
       setSelectedKYC(response.data);
     } catch (err: any) {
       toast.error('Failed to load KYC details');
@@ -73,7 +74,7 @@ export function KYCManagement() {
     if (!selectedKYC) return;
     try {
       setActionLoading(true);
-      await approveKYC(selectedKYC._id, reviewNotes);
+      await approveKYC(selectedKYC.kycId, reviewNotes);
       toast.success('KYC application approved');
       setSelectedKYC(null);
       setReviewNotes('');
@@ -92,7 +93,7 @@ export function KYCManagement() {
     }
     try {
       setActionLoading(true);
-      await rejectKYC(selectedKYC._id, reviewNotes);
+      await rejectKYC(selectedKYC.kycId, reviewNotes);
       toast.success('KYC application rejected');
       setSelectedKYC(null);
       setReviewNotes('');
@@ -111,7 +112,7 @@ export function KYCManagement() {
     }
     try {
       setActionLoading(true);
-      await requestKYCChanges(selectedKYC._id, reviewNotes);
+      await requestKYCChanges(selectedKYC.kycId, reviewNotes);
       toast.success('Change request sent to user');
       setSelectedKYC(null);
       setReviewNotes('');
@@ -129,7 +130,7 @@ export function KYCManagement() {
       approved: { variant: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle, label: 'Approved' },
       verified: { variant: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle, label: 'Verified' },
       rejected: { variant: 'bg-red-100 text-red-700 border-red-200', icon: XCircle, label: 'Rejected' },
-      resubmitted: { variant: 'bg-blue-100 text-blue-700 border-blue-200', icon: AlertCircle, label: 'Resubmitted' },
+      pending_review: { variant: 'bg-blue-100 text-blue-700 border-blue-200', icon: AlertCircle, label: 'Resubmitted' },
     };
     const config = configs[status] || configs.pending;
     const Icon = config.icon;
@@ -148,9 +149,7 @@ export function KYCManagement() {
 
   const getImageUrl = (path: string) => {
     if (!path) return '';
-    // Remove /api from the URL to get base URL
-    const baseUrl = 'http://localhost:3000'; // Change this to match your backend URL
-    return `${baseUrl}/${path}`;
+    return `${config.apiUrl.replace('/api', '')}/${path}`;
   };
 
   if (loading) {
@@ -249,7 +248,7 @@ export function KYCManagement() {
               </div>
               <div>
                 <div className="text-gray-500 text-sm">Resubmitted</div>
-                <div className="text-gray-900">{applications.filter(a => a.status === 'resubmitted').length}</div>
+                <div className="text-gray-900">{applications.filter(a => a.status === 'pending_review').length}</div>
               </div>
             </div>
           </CardContent>
@@ -286,7 +285,7 @@ export function KYCManagement() {
               <TabsTrigger value="pending">Pending ({applications.filter(a => a.status === 'pending').length})</TabsTrigger>
               <TabsTrigger value="approved">Approved ({applications.filter(a => a.status === 'approved' || a.status === 'verified').length})</TabsTrigger>
               <TabsTrigger value="rejected">Rejected ({applications.filter(a => a.status === 'rejected').length})</TabsTrigger>
-              <TabsTrigger value="resubmitted">Resubmitted ({applications.filter(a => a.status === 'resubmitted').length})</TabsTrigger>
+              <TabsTrigger value="pending_review">Resubmitted ({applications.filter(a => a.status === 'pending_review').length})</TabsTrigger>
             </TabsList>
             <TabsContent value={activeTab}>
               <div className="overflow-x-auto">
@@ -316,7 +315,7 @@ export function KYCManagement() {
                           className="cursor-pointer hover:bg-gray-50"
                           onClick={() => {
                             setSelectedKYC(application);
-                            fetchKYCDetail(application.id);
+                            fetchKYCDetail(application.kycId);
                           }}
                         >
                           <TableCell>{application.kycId}</TableCell>
@@ -334,7 +333,7 @@ export function KYCManagement() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedKYC(application);
-                                fetchKYCDetail(application.id);
+                                fetchKYCDetail(application.kycId);
                               }}
                             >
                               Review
@@ -503,7 +502,7 @@ export function KYCManagement() {
                 </div>
 
                 {/* Action Buttons */}
-                {selectedKYC.status === 'pending' || selectedKYC.status === 'resubmitted' ? (
+                {selectedKYC.status === 'pending' || selectedKYC.status === 'pending_review' ? (
                   <div className="space-y-2 pt-4 border-t">
                     <Button className="w-full bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={actionLoading}>
                       {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
