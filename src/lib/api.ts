@@ -196,8 +196,8 @@ export const getFinanceTransactions = (params?: {
 export const getFinanceAnalytics = (granularity: string = 'day') => 
   apiCall(`/admin/finance/analytics?granularity=${granularity}`);
 
-export const approveDeposit = (transactionId: string, notes?: string) => 
-  apiCall(`/admin/finance/approve-deposit/${transactionId}`, {
+export const approveDeposit = (transactionId: string, notes?: string) =>
+  apiCall(`/admin/finance/verification/approve/${transactionId}`, {
     method: 'POST',
     body: JSON.stringify({ notes }),
   });
@@ -208,8 +208,8 @@ export const approveWithdrawal = (transactionId: string, notes?: string) =>
     body: JSON.stringify({ notes }),
   });
 
-export const rejectFinanceTransaction = (transactionId: string, reason: string) => 
-  apiCall(`/admin/finance/reject-transaction/${transactionId}`, {
+export const rejectFinanceTransaction = (transactionId: string, reason: string) =>
+  apiCall(`/admin/finance/verification/reject/${transactionId}`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   });

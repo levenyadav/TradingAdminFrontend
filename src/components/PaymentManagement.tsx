@@ -111,13 +111,13 @@ export function PaymentManagement() {
     };
 
     return {
-      id: apiTxn.transactionId,
+      id: apiTxn._id,  // Use MongoDB _id for API calls
       user: apiTxn.userId.fullName,
       type: displayType,
       method: getPaymentMethod(apiTxn.type, apiTxn.metadata),
       amount: `$${Math.abs(apiTxn.amount).toLocaleString()}`,
       status: apiTxn.status,
-      reference: apiTxn.transactionId,
+      reference: apiTxn.transactionId,  // Keep readable ID for display
       date: new Date(apiTxn.createdAt).toLocaleString(),
     };
   };
