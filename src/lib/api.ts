@@ -47,9 +47,7 @@ export const isAuthenticated = () => {
 };
 
 // Generic API call function
-async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  // Always use real API - no mock data fallbacks
-
+async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<APIResponse<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getAuthToken();
 
@@ -64,50 +62,31 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   try {
     const response = await fetch(url, apiConfig);
-    
+
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status} - ${response.statusText}`;
       try {
         const errorData = await response.json();
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch (parseError) {
-        console.warn('Failed to parse error response:', parseError);
-      }
+        errorMessage = errorData?.error?.message || errorData.message || errorMessage;
+      } catch {}
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
-    return data;
+    const body = await response.json();
+    const wrapped: APIResponse<T> = {
+      success: true,
+      message: '',
+      statusCode: response.status,
+      timestamp: new Date().toISOString(),
+      data: body?.data ?? body,
+    };
+    return wrapped;
   } catch (error: any) {
-    // Improved error handling and logging
-    console.error('API Error Details:', {
-      url,
-      error,
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-    
-    // Extract meaningful error message
-    let errorMessage = 'Failed to connect to server';
-    
-    if (error.message) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else if (error.toString && error.toString() !== '[object Object]') {
-      errorMessage = error.toString();
-    }
-    
-    // If it's a connection error, provide setup instructions
+    console.error('API Error Details:', { url, error, message: error.message });
+    let errorMessage = error.message || 'Failed to connect to server';
     if (errorMessage.includes('fetch') || errorMessage.includes('Network') || errorMessage.includes('TypeError')) {
-      throw new Error(
-        `Cannot connect to backend at ${API_BASE_URL}. ` +
-        `Please ensure your backend is running at localhost:5022`
-      );
+      throw new Error(`Cannot connect to backend at ${API_BASE_URL}. Please ensure the backend is reachable and CORS/CSP allow the request.`);
     }
-    
-    // Throw a new error with the extracted message
     throw new Error(errorMessage);
   }
 }
@@ -152,34 +131,34 @@ export const getTradingAnalytics = (granularity: string = 'day') =>
   apiCall(`/admin/trading/analytics?granularity=${granularity}`);
 
 export const getAllPositions = (params?: { page?: number; limit?: number }) => 
-  apiCall(`/admin/positions?${new URLSearchParams(params as any)}`);
+  apiCall(`/admin/trading/positions?${new URLSearchParams(params as any)}`);
 
 export const getTradingVolumeAnalytics = (period?: string) => 
-  apiCall(`/admin/analytics/trading/volume?period=${period || '30d'}`);
+  apiCall(`/admin/monitoring/trading-volume?period=${period || '30d'}`);
 
 // Wallet Management
 export const getAllWallets = (params?: { page?: number; limit?: number; sortBy?: string }) => 
-  apiCall(`/admin/wallets?${new URLSearchParams(params as any)}`);
+  apiCall(`/admin/finance/wallets?${new URLSearchParams(params as any)}`);
 
 // Transaction Management
 export const getAllTransactions = (params?: { page?: number; limit?: number; type?: string; status?: string }) => 
-  apiCall(`/admin/transactions?${new URLSearchParams(params as any)}`);
+  apiCall(`/admin/finance/transactions?${new URLSearchParams(params as any)}`);
 
 export const approveTransaction = (transactionId: string, notes?: string) => 
-  apiCall(`/admin/transactions/${transactionId}/approve`, {
+  apiCall(`/admin/finance/verification/approve/${transactionId}`, {
     method: 'POST',
     body: JSON.stringify({ notes }),
   });
 
 export const rejectTransaction = (transactionId: string, reason: string) => 
-  apiCall(`/admin/transactions/${transactionId}/reject`, {
+  apiCall(`/admin/finance/verification/reject/${transactionId}`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   });
 
 // Financial Analytics
 export const getFinancialAnalytics = () => 
-  apiCall('/admin/analytics/financial');
+  apiCall('/admin/finance/analytics');
 
 // Finance Management - Payment/Transaction APIs
 export const getFinanceTransactions = (params?: { 
@@ -219,18 +198,18 @@ export const getSystemMetrics = () =>
   apiCall('/admin/monitoring/metrics');
 
 export const getSystemHealth = () => 
-  apiCall('/admin/analytics/system/health');
+  apiCall('/admin/monitoring/health');
 
 export const getAnalyticsDashboard = () => 
-  apiCall('/admin/analytics/dashboard');
+  apiCall('/admin/monitoring/dashboard');
 
 // Audit Logs
 export const getAuditLogs = (params?: { page?: number; limit?: number; category?: string; action?: string }) => 
-  apiCall(`/admin/audit-logs?${new URLSearchParams(params as any)}`);
+  apiCall(`/admin/monitoring/audit-logs?${new URLSearchParams(params as any)}`);
 
 // Notifications
 export const getNotificationStats = () => 
-  apiCall('/admin/analytics/notifications');
+  apiCall('/admin/monitoring/notification-stats');
 
 // KYC Management
 export const getAllKYCApplications = (params?: { page?: number; limit?: number; status?: string; sortBy?: string; sortOrder?: string; search?: string }) => 
@@ -309,7 +288,7 @@ export const createCurrencyPair = (pairData: any) =>
 
 export const updateCurrencyPair = (pairId: string, pairData: any) => 
   apiCall(`/admin/currency-pairs/${pairId}`, {
-    method: 'PATCH',
+    method: 'PUT',
     body: JSON.stringify(pairData),
   });
 
@@ -319,44 +298,43 @@ export const deleteCurrencyPair = (pairId: string) =>
   });
 
 export const toggleCurrencyPairStatus = (pairId: string, enabled: boolean) => 
-  apiCall(`/admin/currency-pairs/${pairId}/toggle`, {
+  apiCall(`/admin/currency-pairs/${pairId}/toggle-trading`, {
     method: 'PATCH',
     body: JSON.stringify({ tradingEnabled: enabled }),
   });
 
 // Authentication API
 export const login = async (loginData: LoginRequest): Promise<APIResponse<LoginResponse>> => {
-  const url = `${API_BASE_URL}/auth/login`;
-  
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(loginData),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Login failed' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // Store tokens and user data
-    if (data.success && data.data) {
-      setAuthTokens(data.data.tokens);
-      setUser(data.data.user);
-    }
-    
-    return data;
-  } catch (error: any) {
-    console.error('Login error:', error);
-    throw error;
+  const resp = await apiCall<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(loginData),
+  });
+  if (resp?.data?.tokens) {
+    setAuthTokens(resp.data.tokens);
+    setUser(resp.data.user);
   }
+  return resp;
 };
 
 export const logout = () => {
   clearAuthTokens();
 };
+
+// Payment Methods (Admin)
+export const getPaymentMethods = () => 
+  apiCall('/admin/payment-methods');
+
+export const getPaymentMethodStatistics = () => 
+  apiCall('/admin/payment-methods/statistics');
+
+export const updatePaymentBankDetails = (methodId: string, bankDetails: any) => 
+  apiCall(`/admin/payment-methods/${methodId}/bank-details`, {
+    method: 'PUT',
+    body: JSON.stringify({ bankDetails }),
+  });
+
+export const togglePaymentMethod = (methodId: string, enabled: boolean) => 
+  apiCall(`/admin/payment-methods/${methodId}/toggle`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  });

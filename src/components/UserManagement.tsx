@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Search, Download, Filter, MoreVertical, AlertCircle, CheckCircle, XCircle, User, Loader2, DollarSign, TrendingUp, TrendingDown, Activity, Calendar, Globe, Shield, Bell, FileText, Clock, Info } from 'lucide-react';
+import { config } from '../lib/config';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -397,9 +398,8 @@ export function UserManagement() {
           <AlertDescription className={isConnectionError ? "text-blue-800" : ""}>
             <p className="mb-2">
               {isConnectionError 
-                ? 'Unable to connect to the backend server. Please ensure the API is running on http://localhost:5022'
-                : error
-              }
+                ? `Unable to connect to the backend server. Please ensure the API is running at ${config.apiUrl}`
+                : error}
             </p>
             <div className="flex gap-2 mt-4">
               <Button onClick={fetchUsers} size="sm">Retry</Button>

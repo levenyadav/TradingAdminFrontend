@@ -32,6 +32,16 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Label } from './ui/label';
+import {
+  getPaymentMethods,
+  updatePaymentBankDetails,
+  togglePaymentMethod,
+  getFinanceTransactions,
+  getFinanceAnalytics,
+  approveDeposit,
+  approveWithdrawal,
+  rejectFinanceTransaction,
+} from '../lib/api';
 
 // Types for payment methods
 interface PaymentMethod {
@@ -112,19 +122,8 @@ export function PaymentMethodManagement() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/payment-methods', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch payment methods');
-      }
-
-      const data = await response.json();
-      setPaymentMethods(data.data?.paymentMethods || []);
+      const data: any = await getPaymentMethods();
+      setPaymentMethods(data.data?.paymentMethods || data.data || []);
     } catch (err: any) {
       console.error('Error fetching payment methods:', err);
       setError(err.message || 'Failed to load payment methods');
@@ -207,22 +206,8 @@ export function PaymentMethodManagement() {
       setSaving(true);
       setError(null);
 
-      const response = await fetch(`/api/admin/payment-methods/${selectedMethod._id}/bank-details`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          bankDetails: bankDetailsForm
-        })
-      });
+      await updatePaymentBankDetails(selectedMethod._id, bankDetailsForm);
 
-      if (!response.ok) {
-        throw new Error('Failed to update bank details');
-      }
-
-      // Refresh data
       await fetchPaymentMethods();
       setShowBankDetailsModal(false);
       setSelectedMethod(null);
@@ -239,22 +224,8 @@ export function PaymentMethodManagement() {
     try {
       setError(null);
 
-      const response = await fetch(`/api/admin/payment-methods/${method._id}/toggle`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          enabled: !method.enabled
-        })
-      });
+      await togglePaymentMethod(method._id, !method.enabled);
 
-      if (!response.ok) {
-        throw new Error('Failed to update payment method');
-      }
-
-      // Update local state
       setPaymentMethods(methods =>
         methods.map(m => m._id === method._id ? { ...m, enabled: !m.enabled } : m)
       );

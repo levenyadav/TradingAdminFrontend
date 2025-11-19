@@ -16,6 +16,7 @@ import type { KYCApplication, KYCDetails, APIResponse } from '../lib/types';
 import { Skeleton } from './ui/skeleton';
 import { toast } from 'sonner@2.0.3';
 import { Label } from './ui/label';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function KYCManagement() {
   const [activeTab, setActiveTab] = useState('all');
@@ -149,7 +150,12 @@ export function KYCManagement() {
 
   const getImageUrl = (path: string) => {
     if (!path) return '';
-    return `${config.apiUrl.replace('/api', '')}/${path}`;
+    try {
+      const origin = new URL(config.apiUrl).origin;
+      return `${origin}/${path}`;
+    } catch {
+      return `/${path}`;
+    }
   };
 
   if (loading) {
@@ -184,12 +190,12 @@ export function KYCManagement() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-gray-900">KYC Management</h1>
-          <p className="text-gray-500 mt-1">Review and manage user identity verification</p>
+          <h1 className="text-2xl font-semibold text-gray-900">KYC Management</h1>
+          <p className="text-gray-600 mt-1">Review and manage user identity verification</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" className="gap-2">
@@ -275,8 +281,12 @@ export function KYCManagement() {
       {/* KYC Applications */}
       <Card>
         <CardHeader>
-          <CardTitle>KYC Applications</CardTitle>
-          <CardDescription>Review and process identity verification requests</CardDescription>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>KYC Applications</CardTitle>
+              <CardDescription>Review and process identity verification requests</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -288,62 +298,112 @@ export function KYCManagement() {
               <TabsTrigger value="pending_review">Resubmitted ({applications.filter(a => a.status === 'pending_review').length})</TabsTrigger>
             </TabsList>
             <TabsContent value={activeTab}>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>KYC ID</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead>Submission Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {applications.length === 0 ? (
+              <div className="space-y-4">
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12 text-gray-500">
-                          No KYC applications found
-                        </TableCell>
+                        <TableHead>KYC ID</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Level</TableHead>
+                        <TableHead>Submission Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ) : (
-                      applications.map((application) => (
-                        <TableRow 
-                          key={application.id} 
-                          className="cursor-pointer hover:bg-gray-50"
-                          onClick={() => {
-                            setSelectedKYC(application);
-                            fetchKYCDetail(application.kycId);
-                          }}
-                        >
-                          <TableCell>{application.kycId}</TableCell>
-                          <TableCell>{application.userId?.fullName || 'N/A'}</TableCell>
-                          <TableCell>{application.userId?.email || 'N/A'}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{application.verificationLevel}</Badge>
-                          </TableCell>
-                          <TableCell>{new Date(application.submittedAt).toLocaleDateString()}</TableCell>
-                          <TableCell>{getStatusBadge(application.status)}</TableCell>
-                          <TableCell className="text-right">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedKYC(application);
-                                fetchKYCDetail(application.kycId);
-                              }}
-                            >
-                              Review
-                            </Button>
+                    </TableHeader>
+                    <TableBody>
+                      {applications.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-12 text-gray-500">
+                            No KYC applications found
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        applications.map((application) => (
+                          <TableRow 
+                            key={application.id} 
+                            className="cursor-pointer hover:bg-gray-50"
+                            onClick={() => {
+                              setSelectedKYC(application);
+                              fetchKYCDetail(application.kycId);
+                            }}
+                          >
+                            <TableCell className="font-mono text-sm">{application.kycId}</TableCell>
+                            <TableCell>{application.userId?.fullName || 'N/A'}</TableCell>
+                            <TableCell className="truncate max-w-[200px]">{application.userId?.email || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{application.verificationLevel}</Badge>
+                            </TableCell>
+                            <TableCell>{new Date(application.submittedAt).toLocaleDateString()}</TableCell>
+                            <TableCell>{getStatusBadge(application.status)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedKYC(application);
+                                  fetchKYCDetail(application.kycId);
+                                }}
+                              >
+                                Review
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="grid md:hidden gap-4">
+                  {applications.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">No KYC applications found</div>
+                  ) : (
+                    applications.map((application) => (
+                      <Card key={application.id} className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm text-gray-500">KYC ID</div>
+                            <div className="font-mono text-gray-900 text-sm">{application.kycId}</div>
+                          </div>
+                          <Badge variant="outline">{application.verificationLevel}</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+                          <div>
+                            <div className="text-gray-500">User</div>
+                            <div className="text-gray-900">{application.userId?.fullName || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Email</div>
+                            <div className="text-gray-900 truncate">{application.userId?.email || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Submitted</div>
+                            <div className="text-gray-900">{new Date(application.submittedAt).toLocaleDateString()}</div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Status</div>
+                            <div>{getStatusBadge(application.status)}</div>
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              setSelectedKYC(application);
+                              fetchKYCDetail(application.kycId);
+                            }}
+                          >
+                            Review
+                          </Button>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -352,10 +412,10 @@ export function KYCManagement() {
 
       {/* KYC Detail Sheet */}
       <Sheet open={!!selectedKYC} onOpenChange={(open) => !open && setSelectedKYC(null)}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto px-0.5">
           {selectedKYC && (
             <>
-              <SheetHeader>
+              <SheetHeader className="px-0.5">
                 <SheetTitle>KYC Application Review</SheetTitle>
                 <SheetDescription>{selectedKYC.kycId} - {selectedKYC.userId?.fullName}</SheetDescription>
               </SheetHeader>
@@ -363,20 +423,20 @@ export function KYCManagement() {
                 {/* User Summary */}
                 <Alert>
                   <AlertDescription>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
                         <div className="text-sm text-gray-500">User Name</div>
-                        <div className="text-gray-900">{selectedKYC.userId?.fullName}</div>
+                        <div className="text-gray-900">{selectedKYC.userId?.fullName || 'N/A'}</div>
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <div className="text-sm text-gray-500">Email</div>
-                        <div className="text-gray-900">{selectedKYC.userId?.email}</div>
+                        <div className="text-gray-900 truncate">{selectedKYC.userId?.email || 'N/A'}</div>
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <div className="text-sm text-gray-500">Verification Level</div>
                         <Badge variant="outline">{selectedKYC.verificationLevel}</Badge>
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <div className="text-sm text-gray-500">Status</div>
                         <div className="mt-1">{getStatusBadge(selectedKYC.status)}</div>
                       </div>
@@ -385,11 +445,11 @@ export function KYCManagement() {
                 </Alert>
 
                 {/* Document Preview */}
-                <div>
+                <div className="px-0.5 space-y-2">
                   <h3 className="text-gray-900 mb-4">Submitted Documents</h3>
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {selectedKYC.documents?.documentFront && (
-                      <div className="border rounded-lg p-4">
+                      <div className="border rounded-lg p-5 md:p-6">
                         <div className="flex items-start gap-3 mb-3">
                           <FileText className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div className="flex-1">
@@ -398,22 +458,17 @@ export function KYCManagement() {
                           </div>
                         </div>
                         <div className="bg-gray-100 rounded-lg overflow-hidden">
-                          <img 
+                          <ImageWithFallback
                             src={getImageUrl(selectedKYC.documents.documentFront.path)}
                             alt="Document Front"
                             className="w-full h-auto"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.parentElement!.innerHTML = '<div class="h-48 flex items-center justify-center"><p class="text-sm text-gray-500">Image not available</p></div>';
-                            }}
                           />
                         </div>
                       </div>
                     )}
                     
                     {selectedKYC.documents?.documentBack && (
-                      <div className="border rounded-lg p-4">
+                      <div className="border rounded-lg p-5 md:p-6">
                         <div className="flex items-start gap-3 mb-3">
                           <FileText className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div className="flex-1">
@@ -422,7 +477,7 @@ export function KYCManagement() {
                           </div>
                         </div>
                         <div className="bg-gray-100 rounded-lg overflow-hidden">
-                          <img 
+                          <ImageWithFallback
                             src={getImageUrl(selectedKYC.documents.documentBack.path)}
                             alt="Document Back"
                             className="w-full h-auto"
@@ -432,7 +487,7 @@ export function KYCManagement() {
                     )}
                     
                     {selectedKYC.documents?.selfie && (
-                      <div className="border rounded-lg p-4">
+                      <div className="border rounded-lg p-5 md:p-6">
                         <div className="flex items-start gap-3 mb-3">
                           <FileText className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div className="flex-1">
@@ -441,7 +496,7 @@ export function KYCManagement() {
                           </div>
                         </div>
                         <div className="bg-gray-100 rounded-lg overflow-hidden">
-                          <img 
+                          <ImageWithFallback
                             src={getImageUrl(selectedKYC.documents.selfie.path)}
                             alt="Selfie"
                             className="w-full h-auto"
@@ -449,13 +504,16 @@ export function KYCManagement() {
                         </div>
                       </div>
                     )}
+                    {!selectedKYC.documents?.documentFront && !selectedKYC.documents?.documentBack && !selectedKYC.documents?.selfie && (
+                      <div className="border rounded-lg p-6 text-center text-gray-500">No documents available</div>
+                    )}
                   </div>
                 </div>
 
                 {/* Document Details */}
-                <div>
+                <div className="p-5 md:p-6 bg-gray-50 rounded-lg border">
                   <h3 className="text-gray-900 mb-4">Application Information</h3>
-                  <div className="space-y-3 text-sm">
+                  <div className="space-y-4 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-500">KYC ID</span>
                       <span className="text-gray-900">{selectedKYC.kycId}</span>
@@ -471,6 +529,32 @@ export function KYCManagement() {
                     <div className="flex justify-between">
                       <span className="text-gray-500">Expires At</span>
                       <span className="text-gray-900">{new Date(selectedKYC.expiresAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-0.5 space-y-2">
+                  <h3 className="text-gray-900 mb-4">Address Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Street</div>
+                      <div className="text-sm text-gray-900 mt-1">{selectedKYC.addressInfo?.street || 'N/A'}</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">City</div>
+                      <div className="text-sm text-gray-900 mt-1">{selectedKYC.addressInfo?.city || 'N/A'}</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">State</div>
+                      <div className="text-sm text-gray-900 mt-1">{selectedKYC.addressInfo?.state || 'N/A'}</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">ZIP Code</div>
+                      <div className="text-sm text-gray-900 mt-1">{selectedKYC.addressInfo?.zipCode || selectedKYC.addressInfo?.postalCode || 'N/A'}</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg md:col-span-2">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Country</div>
+                      <div className="text-sm text-gray-900 mt-1">{selectedKYC.addressInfo?.country || 'N/A'}</div>
                     </div>
                   </div>
                 </div>
@@ -491,7 +575,7 @@ export function KYCManagement() {
                 )}
 
                 {/* Review Notes */}
-                <div>
+                <div className="px-0.5 space-y-2">
                   <Label className="text-sm text-gray-900 mb-2 block">Reviewer Notes</Label>
                   <Textarea
                     placeholder="Add comments or reasons for your decision..."

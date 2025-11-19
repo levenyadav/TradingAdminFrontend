@@ -6,6 +6,8 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Separator } from './ui/separator';
 import { Textarea } from './ui/textarea';
@@ -34,12 +36,14 @@ import {
   updateNotificationSettings,
   updateBusinessSettings
 } from '../lib/api';
+import { getAllCurrencyPairs, createCurrencyPair, updateCurrencyPair, deleteCurrencyPair } from '../lib/api';
 import type { 
   PlatformSettings, 
   TradingSettings, 
   NotificationSettings, 
   BusinessSettings,
-  APIResponse 
+  APIResponse,
+  CurrencyPair
 } from '../lib/types';
 
 export function PlatformSettings() {
@@ -53,6 +57,7 @@ export function PlatformSettings() {
   const [tradingSettings, setTradingSettings] = useState<TradingSettings | null>(null);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null);
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null);
+  const [currencyPairs, setCurrencyPairs] = useState<CurrencyPair[]>([]);
 
   // UI state variables
   const [marketOpen, setMarketOpen] = useState(true);
@@ -63,6 +68,7 @@ export function PlatformSettings() {
   // Load all settings on component mount
   useEffect(() => {
     loadAllSettings();
+    loadCurrencyPairs();
   }, []);
 
   const loadAllSettings = async () => {
@@ -101,6 +107,116 @@ export function PlatformSettings() {
       console.error('Settings load error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCurrencyPairs = async () => {
+    try {
+      const res = await getAllCurrencyPairs({ page: 1, limit: 50 }) as APIResponse<CurrencyPair[]>;
+      if (res.success) setCurrencyPairs(res.data || []);
+    } catch (err) {
+      console.error('Load currency pairs error:', err);
+    }
+  };
+
+  // Pairs CRUD state
+  const [showAddPair, setShowAddPair] = useState(false);
+  const [addSymbol, setAddSymbol] = useState('');
+  const [addBase, setAddBase] = useState('');
+  const [addQuote, setAddQuote] = useState('');
+  const [addCategory, setAddCategory] = useState('major');
+  const [pairSaving, setPairSaving] = useState(false);
+
+  const [editPair, setEditPair] = useState<CurrencyPair | null>(null);
+  const [showEditPair, setShowEditPair] = useState(false);
+  const [editSpread, setEditSpread] = useState<number>(1.0);
+  const [editLeverage, setEditLeverage] = useState<number>(100);
+  const [editEnabled, setEditEnabled] = useState<boolean>(true);
+
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showDelete, setShowDelete] = useState(false);
+
+  const handleAddPair = async () => {
+    try {
+      setPairSaving(true);
+      const payload = {
+        symbol: addSymbol.trim(),
+        baseCurrency: addBase.trim().toUpperCase(),
+        quoteCurrency: addQuote.trim().toUpperCase(),
+        category: addCategory,
+        isActive: true,
+        tradingEnabled: true,
+      };
+      const resp = await createCurrencyPair(payload) as APIResponse<CurrencyPair>;
+      if (resp.success) {
+        toast.success('Pair added');
+        setShowAddPair(false);
+        setAddSymbol(''); setAddBase(''); setAddQuote(''); setAddCategory('major');
+        await loadCurrencyPairs();
+      } else {
+        throw new Error(resp.message || 'Failed to add pair');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add pair');
+    } finally {
+      setPairSaving(false);
+    }
+  };
+
+  const openEditPair = (p: CurrencyPair) => {
+    setEditPair(p);
+    setEditSpread(p.defaultSpread ?? 1.0);
+    setEditLeverage(p.maxLeverage ?? (platformSettings?.tradingParameters.maxLeverage || 100));
+    setEditEnabled(!!p.tradingEnabled);
+    setShowEditPair(true);
+  };
+
+  const handleEditPair = async () => {
+    if (!editPair) return;
+    try {
+      setPairSaving(true);
+      const resp = await updateCurrencyPair(editPair._id, {
+        defaultSpread: editSpread,
+        maxLeverage: editLeverage,
+        tradingEnabled: editEnabled,
+      }) as APIResponse<CurrencyPair>;
+      if (resp.success) {
+        toast.success('Pair updated');
+        setShowEditPair(false);
+        setEditPair(null);
+        await loadCurrencyPairs();
+      } else {
+        throw new Error(resp.message || 'Failed to update pair');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update pair');
+    } finally {
+      setPairSaving(false);
+    }
+  };
+
+  const confirmDeletePair = (p: CurrencyPair) => {
+    setDeleteId(p._id);
+    setShowDelete(true);
+  };
+
+  const handleDeletePair = async () => {
+    if (!deleteId) return;
+    try {
+      setPairSaving(true);
+      const resp = await deleteCurrencyPair(deleteId) as APIResponse<any>;
+      if (resp.success) {
+        toast.success('Pair deleted');
+        setShowDelete(false);
+        setDeleteId(null);
+        await loadCurrencyPairs();
+      } else {
+        throw new Error(resp.message || 'Failed to delete pair');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete pair');
+    } finally {
+      setPairSaving(false);
     }
   };
 
@@ -1075,7 +1191,7 @@ export function PlatformSettings() {
                   <CardTitle>Currency Pair Management</CardTitle>
                   <CardDescription>Configure available trading pairs and spreads</CardDescription>
                 </div>
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={() => setShowAddPair(true)}>
                   <Plus className="h-4 w-4" />
                   Add Pair
                 </Button>
@@ -1093,7 +1209,7 @@ export function PlatformSettings() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tradingSettings?.availableSymbols?.map((symbol) => (
+                  {(currencyPairs.length ? currencyPairs : tradingSettings?.availableSymbols || []).map((symbol: any) => (
                     <TableRow key={symbol._id}>
                       <TableCell>{symbol.symbol}</TableCell>
                       <TableCell>
@@ -1102,25 +1218,17 @@ export function PlatformSettings() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Input 
-                          defaultValue="1.0" 
-                          className="w-24" 
-                          placeholder="Spread"
-                        />
+                        <Input defaultValue={String(symbol.defaultSpread ?? 1.0)} className="w-24" placeholder="Spread" readOnly />
                       </TableCell>
                       <TableCell>
-                        <Input 
-                          defaultValue={`1:${platformSettings?.tradingParameters.maxLeverage || 100}`} 
-                          className="w-24" 
-                          placeholder="Leverage"
-                        />
+                        <Input defaultValue={`1:${symbol.maxLeverage ?? (platformSettings?.tradingParameters.maxLeverage || 100)}`} className="w-24" placeholder="Leverage" readOnly />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" onClick={() => openEditPair(symbol)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="text-red-600">
+                          <Button variant="ghost" size="icon" className="text-red-600" onClick={() => confirmDeletePair(symbol)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1135,8 +1243,86 @@ export function PlatformSettings() {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
+          </CardContent>
           </Card>
+          {/* Add Pair Modal */}
+          <Dialog open={showAddPair} onOpenChange={setShowAddPair}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Currency Pair</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input placeholder="Symbol (e.g., EUR/USD)" value={addSymbol} onChange={(e) => setAddSymbol(e.target.value.toUpperCase())} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="Base (e.g., EUR)" value={addBase} onChange={(e) => setAddBase(e.target.value.toUpperCase())} />
+                  <Input placeholder="Quote (e.g., USD)" value={addQuote} onChange={(e) => setAddQuote(e.target.value.toUpperCase())} />
+                </div>
+                <div>
+                  <Select value={addCategory} onValueChange={setAddCategory}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Category" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="major">Major</SelectItem>
+                      <SelectItem value="minor">Minor</SelectItem>
+                      <SelectItem value="exotic">Exotic</SelectItem>
+                      <SelectItem value="crypto">Crypto</SelectItem>
+                      <SelectItem value="commodities">Commodities</SelectItem>
+                      <SelectItem value="indices">Indices</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddPair(false)}>Cancel</Button>
+                <Button onClick={handleAddPair} disabled={pairSaving || !addSymbol || !addBase || !addQuote}> {pairSaving ? 'Adding...' : 'Add Pair'} </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Pair Modal */}
+          <Dialog open={showEditPair} onOpenChange={setShowEditPair}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Pair</DialogTitle>
+              </DialogHeader>
+              {editPair && (
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600">{editPair.symbol}</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Spread (pips)</Label>
+                      <Input type="number" step="0.1" value={editSpread} onChange={(e) => setEditSpread(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div>
+                      <Label>Max Leverage</Label>
+                      <Input type="number" value={editLeverage} onChange={(e) => setEditLeverage(parseInt(e.target.value) || 0)} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded">
+                    <Label>Trading Enabled</Label>
+                    <Switch checked={editEnabled} onCheckedChange={setEditEnabled} />
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowEditPair(false)}>Cancel</Button>
+                <Button onClick={handleEditPair} disabled={pairSaving || !editPair}>{pairSaving ? 'Saving...' : 'Save Changes'}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Confirm */}
+          <Dialog open={showDelete} onOpenChange={setShowDelete}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Pair</DialogTitle>
+              </DialogHeader>
+              <div className="text-sm text-gray-600">Are you sure you want to delete this pair?</div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDelete(false)}>Cancel</Button>
+                <Button className="text-red-600" onClick={handleDeletePair} disabled={pairSaving || !deleteId}>{pairSaving ? 'Deleting...' : 'Delete'}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Notifications */}

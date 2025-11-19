@@ -39,6 +39,7 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --color-gray-50: #f9fafb;
 }
 
 .dark {
@@ -186,4 +187,30 @@
 
 html {
   font-size: var(--font-size);
+}
+
+/* Custom UI spacing and responsive sheet paddings */
+@media (min-width: 768px) {
+  .data-\[state\=open\]\:slide-in-from-right[data-state="open"] {
+    --tw-enter-translate-x: 100%;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 767px) {
+  .data-\[state\=open\]\:slide-in-from-right[data-state="open"] {
+    --tw-enter-translate-x: 100%;
+    padding: 10px;
+  }
+}
+
+.bg-gray-50 {
+  background-color: var(--color-gray-50);
+  padding: 7px;
+}
+
+.border {
+  border-style: var(--tw-border-style, solid);
+  border-width: 1px;
+  padding: 6px;
 }
