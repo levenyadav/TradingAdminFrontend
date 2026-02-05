@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { UserManagement } from './components/UserManagement';
+import { TradingManagement } from './components/TradingManagement';
 import { KYCManagement } from './components/KYCManagement';
 import { PaymentManagement } from './components/PaymentManagement';
 import { PlatformSettings } from './components/PlatformSettings';
@@ -40,6 +41,8 @@ export default function App() {
         return <Dashboard />;
       case 'users':
         return <UserManagement />;
+      case 'trading':
+        return <TradingManagement />;
       case 'kyc':
         return <KYCManagement />;
       case 'payments':
@@ -78,8 +81,8 @@ export default function App() {
   // Show admin dashboard if authenticated
   return (
     <>
-      <AdminLayout 
-        currentPage={currentPage} 
+      <AdminLayout
+        currentPage={currentPage}
         onNavigate={setCurrentPage}
         onLogout={handleLogout}
       >

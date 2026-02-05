@@ -1,15 +1,16 @@
 import { ReactNode, useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileCheck, 
-  CreditCard, 
+import {
+  LayoutDashboard,
+  Users,
+  FileCheck,
+  CreditCard,
   Settings,
   Bell,
   Search,
   Menu,
   X,
-  LogOut
+  LogOut,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -35,6 +36,7 @@ interface AdminLayoutProps {
 const navigation = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'users', label: 'User Management', icon: Users },
+  { id: 'trading', label: 'Trading Management', icon: TrendingUp },
   { id: 'kyc', label: 'KYC Management', icon: FileCheck },
   { id: 'payments', label: 'Payment Management', icon: CreditCard },
   { id: 'settings', label: 'Platform Settings', icon: Settings },
@@ -69,15 +71,13 @@ export function AdminLayout({ children, currentPage, onNavigate, onLogout }: Adm
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className={`w-full group flex items-center px-3 py-2.5 rounded-lg transition-colors ${
-                    isActive
+                  className={`w-full group flex items-center px-3 py-2.5 rounded-lg transition-colors ${isActive
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
-                  <Icon className={`mr-3 flex-shrink-0 h-5 w-5 ${
-                    isActive ? 'text-blue-700' : 'text-gray-400 group-hover:text-gray-500'
-                  }`} />
+                  <Icon className={`mr-3 flex-shrink-0 h-5 w-5 ${isActive ? 'text-blue-700' : 'text-gray-400 group-hover:text-gray-500'
+                    }`} />
                   <span className="flex-1 text-left">{item.label}</span>
                 </button>
               );
@@ -119,15 +119,13 @@ export function AdminLayout({ children, currentPage, onNavigate, onLogout }: Adm
                         onNavigate(item.id);
                         setMobileMenuOpen(false);
                       }}
-                      className={`w-full group flex items-center px-3 py-2.5 rounded-lg transition-colors ${
-                        isActive
+                      className={`w-full group flex items-center px-3 py-2.5 rounded-lg transition-colors ${isActive
                           ? 'bg-blue-50 text-blue-700'
                           : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
+                        }`}
                     >
-                      <Icon className={`mr-3 flex-shrink-0 h-5 w-5 ${
-                        isActive ? 'text-blue-700' : 'text-gray-400 group-hover:text-gray-500'
-                      }`} />
+                      <Icon className={`mr-3 flex-shrink-0 h-5 w-5 ${isActive ? 'text-blue-700' : 'text-gray-400 group-hover:text-gray-500'
+                        }`} />
                       <span className="flex-1 text-left">{item.label}</span>
                     </button>
                   );
@@ -185,7 +183,7 @@ export function AdminLayout({ children, currentPage, onNavigate, onLogout }: Adm
                   <DropdownMenuItem>Profile Settings</DropdownMenuItem>
                   <DropdownMenuItem>Activity Log</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="text-red-600 cursor-pointer"
                     onClick={handleLogout}
                   >

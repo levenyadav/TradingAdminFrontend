@@ -68,7 +68,7 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
       try {
         const errorData = await response.json();
         errorMessage = errorData?.error?.message || errorData.message || errorMessage;
-      } catch {}
+      } catch { }
       throw new Error(errorMessage);
     }
 
@@ -92,87 +92,87 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 // User Analytics
-export const getUserAnalytics = (granularity: string = 'day') => 
+export const getUserAnalytics = (granularity: string = 'day') =>
   apiCall(`/admin/users/analytics?granularity=${granularity}`);
 
 // User Management
-export const getAllUsers = (params?: { page?: number; limit?: number; status?: string; kycStatus?: string; search?: string }) => 
+export const getAllUsers = (params?: { page?: number; limit?: number; status?: string; kycStatus?: string; search?: string }) =>
   apiCall(`/admin/users?${new URLSearchParams(params as any)}`);
 
-export const getUserDetails = (userId: string) => 
+export const getUserDetails = (userId: string) =>
   apiCall(`/admin/users/${userId}`);
 
-export const updateUserStatus = (userId: string, status: string, reason: string) => 
+export const updateUserStatus = (userId: string, status: string, reason: string) =>
   apiCall(`/admin/users/${userId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status, reason }),
   });
 
-export const updateUserDetails = (userId: string, userData: any) => 
+export const updateUserDetails = (userId: string, userData: any) =>
   apiCall(`/admin/users/${userId}`, {
     method: 'PUT',
     body: JSON.stringify(userData),
   });
 
-export const adjustUserBalance = (userId: string, amount: number, reason: string) => 
+export const adjustUserBalance = (userId: string, amount: number, reason: string) =>
   apiCall(`/admin/finance/adjust-balance`, {
     method: 'POST',
-    body: JSON.stringify({ 
-      userId, 
-      amount, 
-      reason, 
+    body: JSON.stringify({
+      userId,
+      amount,
+      reason,
       type: 'correction',
-      notifyUser: true 
+      notifyUser: true
     }),
   });
 
 // Trading Analytics - UPDATED: Real backend endpoint with granularity
-export const getTradingAnalytics = (granularity: string = 'day') => 
+export const getTradingAnalytics = (granularity: string = 'day') =>
   apiCall(`/admin/trading/analytics?granularity=${granularity}`);
 
-export const getAllPositions = (params?: { page?: number; limit?: number }) => 
+export const getAllPositions = (params?: { page?: number; limit?: number; status?: string; symbol?: string; accountId?: string; userId?: string }) =>
   apiCall(`/admin/trading/positions?${new URLSearchParams(params as any)}`);
 
-export const getTradingVolumeAnalytics = (period?: string) => 
+export const getTradingVolumeAnalytics = (period?: string) =>
   apiCall(`/admin/monitoring/trading-volume?period=${period || '30d'}`);
 
 // Wallet Management
-export const getAllWallets = (params?: { page?: number; limit?: number; sortBy?: string }) => 
+export const getAllWallets = (params?: { page?: number; limit?: number; sortBy?: string }) =>
   apiCall(`/admin/finance/wallets?${new URLSearchParams(params as any)}`);
 
 // Transaction Management
-export const getAllTransactions = (params?: { page?: number; limit?: number; type?: string; status?: string }) => 
+export const getAllTransactions = (params?: { page?: number; limit?: number; type?: string; status?: string }) =>
   apiCall(`/admin/finance/transactions?${new URLSearchParams(params as any)}`);
 
-export const approveTransaction = (transactionId: string, notes?: string) => 
+export const approveTransaction = (transactionId: string, notes?: string) =>
   apiCall(`/admin/finance/verification/approve/${transactionId}`, {
     method: 'POST',
     body: JSON.stringify({ notes }),
   });
 
-export const rejectTransaction = (transactionId: string, reason: string) => 
+export const rejectTransaction = (transactionId: string, reason: string) =>
   apiCall(`/admin/finance/verification/reject/${transactionId}`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   });
 
 // Financial Analytics
-export const getFinancialAnalytics = () => 
+export const getFinancialAnalytics = () =>
   apiCall('/admin/finance/analytics');
 
 // Finance Management - Payment/Transaction APIs
-export const getFinanceTransactions = (params?: { 
-  page?: number; 
-  limit?: number; 
-  sortBy?: string; 
+export const getFinanceTransactions = (params?: {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
   sortOrder?: string;
   type?: string;
   status?: string;
   search?: string;
-}) => 
+}) =>
   apiCall(`/admin/finance/transactions?${new URLSearchParams(params as any)}`);
 
-export const getFinanceAnalytics = (granularity: string = 'day') => 
+export const getFinanceAnalytics = (granularity: string = 'day') =>
   apiCall(`/admin/finance/analytics?granularity=${granularity}`);
 
 export const approveDeposit = (transactionId: string, notes?: string) =>
@@ -181,7 +181,7 @@ export const approveDeposit = (transactionId: string, notes?: string) =>
     body: JSON.stringify({ notes }),
   });
 
-export const approveWithdrawal = (transactionId: string, notes?: string) => 
+export const approveWithdrawal = (transactionId: string, notes?: string) =>
   apiCall(`/admin/finance/approve-withdrawal/${transactionId}`, {
     method: 'POST',
     body: JSON.stringify({ notes }),
@@ -194,110 +194,110 @@ export const rejectFinanceTransaction = (transactionId: string, reason: string) 
   });
 
 // System Metrics - NEW: Real backend endpoint
-export const getSystemMetrics = () => 
+export const getSystemMetrics = () =>
   apiCall('/admin/monitoring/metrics');
 
-export const getSystemHealth = () => 
+export const getSystemHealth = () =>
   apiCall('/admin/monitoring/health');
 
-export const getAnalyticsDashboard = () => 
+export const getAnalyticsDashboard = () =>
   apiCall('/admin/monitoring/dashboard');
 
 // Audit Logs
-export const getAuditLogs = (params?: { page?: number; limit?: number; category?: string; action?: string }) => 
+export const getAuditLogs = (params?: { page?: number; limit?: number; category?: string; action?: string }) =>
   apiCall(`/admin/monitoring/audit-logs?${new URLSearchParams(params as any)}`);
 
 // Notifications
-export const getNotificationStats = () => 
+export const getNotificationStats = () =>
   apiCall('/admin/monitoring/notification-stats');
 
 // KYC Management
-export const getAllKYCApplications = (params?: { page?: number; limit?: number; status?: string; sortBy?: string; sortOrder?: string; search?: string }) => 
+export const getAllKYCApplications = (params?: { page?: number; limit?: number; status?: string; sortBy?: string; sortOrder?: string; search?: string }) =>
   apiCall(`/admin/kyc/applications?${new URLSearchParams(params as any)}`);
 
-export const getKYCDetails = (kycId: string) => 
+export const getKYCDetails = (kycId: string) =>
   apiCall(`/admin/kyc/applications/${kycId}`);
 
-export const reviewKYC = (kycId: string, action: 'approve' | 'reject' | 'request-changes', notes?: string, rejectionReason?: string) => 
+export const reviewKYC = (kycId: string, action: 'approve' | 'reject' | 'request-changes', notes?: string, rejectionReason?: string) =>
   apiCall(`/admin/kyc/applications/${kycId}/review`, {
     method: 'POST',
     body: JSON.stringify({ action, notes, rejectionReason }),
   });
 
-export const approveKYC = (kycId: string, notes?: string) => 
+export const approveKYC = (kycId: string, notes?: string) =>
   reviewKYC(kycId, 'approve', notes);
 
-export const rejectKYC = (kycId: string, reason: string) => 
+export const rejectKYC = (kycId: string, reason: string) =>
   reviewKYC(kycId, 'reject', undefined, reason);
 
-export const requestKYCChanges = (kycId: string, reason: string) => 
+export const requestKYCChanges = (kycId: string, reason: string) =>
   reviewKYC(kycId, 'request-changes', reason);
 
 // Platform Settings
-export const getPlatformSettings = () => 
+export const getPlatformSettings = () =>
   apiCall('/admin/settings');
 
-export const getTradingSettings = () => 
+export const getTradingSettings = () =>
   apiCall('/admin/settings/trading');
 
-export const getNotificationSettings = () => 
+export const getNotificationSettings = () =>
   apiCall('/admin/settings/notifications');
 
-export const getBusinessSettings = () => 
+export const getBusinessSettings = () =>
   apiCall('/admin/settings/business');
 
-export const updatePlatformSettings = (settings: any) => 
+export const updatePlatformSettings = (settings: any) =>
   apiCall('/admin/settings', {
     method: 'PATCH',
     body: JSON.stringify(settings),
   });
 
-export const updateTradingSettings = (settings: any) => 
+export const updateTradingSettings = (settings: any) =>
   apiCall('/admin/settings/trading', {
     method: 'PATCH',
     body: JSON.stringify(settings),
   });
 
-export const updateNotificationSettings = (settings: any) => 
+export const updateNotificationSettings = (settings: any) =>
   apiCall('/admin/settings/notifications', {
     method: 'PATCH',
     body: JSON.stringify(settings),
   });
 
-export const updateBusinessSettings = (settings: any) => 
+export const updateBusinessSettings = (settings: any) =>
   apiCall('/admin/settings/business', {
     method: 'PATCH',
     body: JSON.stringify(settings),
   });
 
-export const getTradingConfig = () => 
+export const getTradingConfig = () =>
   apiCall('/admin/trading/config');
 
 // Currency Pairs Management
-export const getAllCurrencyPairs = (params?: { page?: number; limit?: number; category?: string }) => 
+export const getAllCurrencyPairs = (params?: { page?: number; limit?: number; category?: string }) =>
   apiCall(`/admin/currency-pairs?${new URLSearchParams(params as any)}`);
 
-export const getCurrencyPairDetails = (pairId: string) => 
+export const getCurrencyPairDetails = (pairId: string) =>
   apiCall(`/admin/currency-pairs/${pairId}`);
 
-export const createCurrencyPair = (pairData: any) => 
+export const createCurrencyPair = (pairData: any) =>
   apiCall('/admin/currency-pairs', {
     method: 'POST',
     body: JSON.stringify(pairData),
   });
 
-export const updateCurrencyPair = (pairId: string, pairData: any) => 
+export const updateCurrencyPair = (pairId: string, pairData: any) =>
   apiCall(`/admin/currency-pairs/${pairId}`, {
     method: 'PUT',
     body: JSON.stringify(pairData),
   });
 
-export const deleteCurrencyPair = (pairId: string) => 
+export const deleteCurrencyPair = (pairId: string) =>
   apiCall(`/admin/currency-pairs/${pairId}`, {
     method: 'DELETE',
   });
 
-export const toggleCurrencyPairStatus = (pairId: string, enabled: boolean) => 
+export const toggleCurrencyPairStatus = (pairId: string, enabled: boolean) =>
   apiCall(`/admin/currency-pairs/${pairId}/toggle-trading`, {
     method: 'PATCH',
     body: JSON.stringify({ tradingEnabled: enabled }),
@@ -321,20 +321,128 @@ export const logout = () => {
 };
 
 // Payment Methods (Admin)
-export const getPaymentMethods = () => 
+export const getPaymentMethods = () =>
   apiCall('/admin/payment-methods');
 
-export const getPaymentMethodStatistics = () => 
+export const getPaymentMethodStatistics = () =>
   apiCall('/admin/payment-methods/statistics');
 
-export const updatePaymentBankDetails = (methodId: string, bankDetails: any) => 
+export const updatePaymentBankDetails = (methodId: string, bankDetails: any) =>
   apiCall(`/admin/payment-methods/${methodId}/bank-details`, {
     method: 'PUT',
     body: JSON.stringify({ bankDetails }),
   });
 
-export const togglePaymentMethod = (methodId: string, enabled: boolean) => 
+export const togglePaymentMethod = (methodId: string, enabled: boolean) =>
   apiCall(`/admin/payment-methods/${methodId}/toggle`, {
     method: 'PATCH',
     body: JSON.stringify({ enabled }),
+  });
+
+// ============================================
+// Trading Management - Account APIs
+// ============================================
+
+export const getAllAccounts = (params?: {
+  page?: number;
+  limit?: number;
+  type?: string;
+  status?: string;
+  currency?: string;
+  minBalance?: number;
+  maxBalance?: number;
+  userId?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}) =>
+  apiCall(`/admin/trading/accounts?${new URLSearchParams(params as any)}`);
+
+export const getAccountDetails = (accountId: string) =>
+  apiCall(`/admin/trading/accounts/${accountId}`);
+
+export const createAccount = (accountData: {
+  userId: string;
+  type?: 'demo' | 'live';
+  currency?: string;
+  leverage?: number;
+  initialBalance?: number;
+  notes?: string;
+}) =>
+  apiCall('/admin/trading/accounts', {
+    method: 'POST',
+    body: JSON.stringify(accountData),
+  });
+
+export const updateAccount = (accountId: string, data: {
+  leverage?: number;
+  status?: 'active' | 'inactive' | 'suspended';
+  maxDailyVolume?: number;
+  maxPositions?: number;
+  notes?: string;
+}) =>
+  apiCall(`/admin/trading/accounts/${accountId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const deleteAccount = (accountId: string, data: {
+  reason: string;
+  forceClose?: boolean;
+}) =>
+  apiCall(`/admin/trading/accounts/${accountId}`, {
+    method: 'DELETE',
+    body: JSON.stringify(data),
+  });
+
+export const adjustAccountBalance = (accountId: string, data: {
+  amount: number;
+  type: 'credit' | 'debit';
+  reason: 'bonus' | 'correction' | 'refund' | 'adjustment' | 'promotion' | 'compensation' | 'fee' | 'other';
+  notes?: string;
+}) =>
+  apiCall(`/admin/trading/accounts/${accountId}/adjust-balance`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+// ============================================
+// Trading Management - Position APIs
+// ============================================
+
+export const createPosition = (positionData: {
+  accountId: string;
+  symbol: string;
+  direction: 'buy' | 'sell';
+  volume: number;
+  openPrice?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  comment?: string;
+  reason: string;
+}) =>
+  apiCall('/admin/trading/positions', {
+    method: 'POST',
+    body: JSON.stringify(positionData),
+  });
+
+
+export const updatePosition = (positionId: string, data: {
+  stopLoss?: number;
+  takeProfit?: number;
+  comment?: string;
+  notes?: string;
+}) =>
+  apiCall(`/admin/trading/positions/${positionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const forceClosePosition = (positionId: string, data: {
+  reason?: string;
+  notifyUser?: boolean;
+}) =>
+  apiCall(`/admin/trading/positions/${positionId}/force-close`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
